@@ -320,15 +320,15 @@ class TiledBrowser(qt.QMainWindow):
         #     self.data.addToPoller(dataObject)
         return dataObject
 
-    def setData(self, node):
-        self.data = node
-        self.refreshData()
+    # def setData(self, node):
+    #     self.data = node
+    #     self.refreshData()
 
-    def refreshData(self):
-        pass
+    # def refreshData(self):
+    #     pass
 
-    def clearData(self):
-        self.data = None
+    # def clearData(self):
+    #     self.data = None
         
     def set_data_source_key(self):
         if 'raw' in self.node_path and 'raw' != self.node_path[-1]:
@@ -364,8 +364,8 @@ class TiledBrowser(qt.QMainWindow):
         self._rebuild()
         # avoid populating data channels table if not in a scan
         if 'raw' in self.node_path and self.node_path[-1] != 'raw':
-            rawDataChannels = tuple(self.get_current_node().items())
-            dataChannels = [channel[0] for channel in rawDataChannels]
+            # For now, always select data from the primary stream
+            dataChannels = self.get_current_node()["primary", "data"].keys()
             self.data_channels_table.build_table(dataChannels)
 
     def exit_node(self):
@@ -386,9 +386,11 @@ class TiledBrowser(qt.QMainWindow):
             return
         if family == StructureFamily.array:
             # TODO: find a way set data to self.data
-            self.setData(node)
+            # self.setData(node)
+            pass
         elif family == StructureFamily.table:
-            self.setData(node)
+            # self.setData(node)
+            pass
         elif family == StructureFamily.container:
             self.enter_node(node_id)
         else:
@@ -722,12 +724,14 @@ class TiledBrowser(qt.QMainWindow):
         sel_list = []
         channel_sel  = self.data_channels_table.getChannelSelection()
         _logger.debug(f'{channel_sel = }')
+        _logger.debug(f'{self.node_path = }')
         if len(channel_sel['Data Channel List']):
             if len(channel_sel['y']):
-                # TODO: find was to give self.data a SourceName method.
                 sel = {
                     'SourceName': self.data.sourceName,
                     'SourceType': self.data.sourceType,
+                    'Key': self.node_path,
+                    'legend': '/'.join(self.node_path),
                     'selection': {'x': channel_sel['x'],
                                    'y': channel_sel['y'],
                                    'm': channel_sel['m'],

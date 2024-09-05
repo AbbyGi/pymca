@@ -1,7 +1,13 @@
+import copy
 import logging
 import numpy as np
 import time
 import sys
+from functools import reduce
+from typing import Union
+
+from tiled.client import from_uri
+from tiled.client.array import DaskArrayClient
 
 from PyMca5.PyMcaCore import DataObject
 from PyMca5.PyMcaGui.io.TiledDataChannelTable import TiledDataChannelTable
@@ -36,6 +42,7 @@ class QTiledDataSource(QSource.QSource):
         self.sourceName = nameList
         self.sourceType = SOURCE_TYPE
         self.__sourceNameList = self.sourceName
+        self.root = from_uri(self.sourceName[0])
         self.refresh()
 
     def refresh(self):
@@ -45,84 +52,100 @@ class QTiledDataSource(QSource.QSource):
         # self.sigUpdated.emit(self.sourceName)
         pass
 
-    def getDataObject(self, key_list, selection=None, poll=False):
-        if type(key_list) not in [type([])]:
-            nolist = True
+    def getDataObject(self, key_list, selection=None):
+        """Retrieve a dataObject that will be used to plot scan data."""
+        if not isinstance(key_list, list):
             key_list = [key_list]
-        else:
-            output = []
-            nolist = False
         data = self.get_data_object(key_list, selection=selection)
 
         return data
 
-    def _set_key(self, selection=None):
-        """Sets key once a scan has been selected in Tiled Browser."""
-        
-        key = {
-            "scan": selection.metadata['start']['uid'],
-            "scan_id": selection.metadata['start']['scan_id'],
-            "streams": list(selection),
-            "selection": selection, 
-        }
-
-        return key
-    
-    def _set_data_channel_selection(self):
-        """Retrieve Data Channel Selections from Tiled Data Channel Table."""
-        _logger.debug("-------- QTiledDataSource _set_data_channel_selection")
-        channel_sel = TiledDataChannelTable.getChannelSelection()
-        self.chan_sel = {
-            'x': channel_sel['x'],
-            'y': channel_sel['y'],
-            'm': channel_sel['m'],
-            'Channel List': channel_sel['Data Channel List'],
-        }
-    
-    def _get_key_info(self, selection):
-        """Retrives key info."""
-
-        key = self._set_key(selection=selection)
-        key_info = {
-            "SourceType": SOURCE_TYPE,
-            "selection": selection,
-            "key": key,
-        }
-
-        return key_info
-    
     def get_data_object(self, key, selection=None):
         """Generate a dataObject that will be used to plot scan data."""
         _logger.debug("-------- QTiledDataSource get_data_object")
+        _logger.debug(f'{key = }')
+        _logger.debug(f'{selection = }')
         dataObject = DataObject.DataObject()
-        dataObject.info = self._get_key_info(selection)
-        dataObject.data = key['selection']
+        dataObject.info = {
+            "selectiontype": "1D",
+            "selection": copy.deepcopy(selection),
+            "LabelNames": selection["Channel List"].copy(),
+        }
+        dataObject.data = None
+        channel_names = selection["Channel List"]
+        # For now, only support one key (corresponding to one source)
+        key = key[0]
+        dataObject.x = (
+            self._get_data(path=key, data_key=channel_names[channel_index])
+            for channel_index in selection["x"]
+        )
+        dataObject.y = (
+            self._get_data(path=key, data_key=channel_names[channel_index])
+            for channel_index in selection["y"]
+        )
+        dataObject.m = (
+            self._get_data(path=key, data_key=channel_names[channel_index])
+            for channel_index in selection["m"]
+        )
 
-        chan_sel = self.chan_sel
-
-        # What data.info attributes to add?
-        dataObject.info['selection'] = selection
-        
-        # data = [key['selection']][datachannel][data]
-        # If data channel selected in x axis go to data and time
-        dataObject.data.x = dataObject.data.chan_sel['x']['data']['time']
-        # If data channel selected in y axis plot everything
-        dataObject.data.y = dataObject.data.chan_sel['y']['data']
-        # If data selected in m divide y by m and plot
-        dataObject.data.m = dataObject.data.chan_sel['m']['data']
+        # Limit to 1D data for now
+        dataObject.x = tuple(
+            self._ensure_max_dims(data, max_dims=1)
+            for data in dataObject.x
+        )
+        dataObject.y = tuple(
+            self._ensure_max_dims(data, max_dims=1)
+            for data in dataObject.y
+        )
+        dataObject.m = tuple(
+            self._ensure_max_dims(data, max_dims=1)
+            for data in dataObject.m
+        )
 
         return dataObject
+
+    def _get_data(
+        self,
+        path: tuple[str],
+        data_key: str,
+        *,
+        stream: str = "primary",
+    ) -> DaskArrayClient:
+        """Get array data from Tiled client"""
+        return self.root[(*path, stream, "data", data_key)]
+
+    def _ensure_max_dims(
+        self,
+        data: DaskArrayClient,
+        *,
+        max_dims: int = 1,
+    ) -> Union[DaskArrayClient, tuple]:
+        """Return data array if dimensions are no greater than max_dims.
+        
+            Otherwise return an null tuple with shape == max_dims
+        """
+        if len(data.shape) <= max_dims:
+            return data
+        else:
+            null_tuple = reduce(lambda x, y: tuple((x,)), range(max_dims), ())
+            return null_tuple
 
     def isUpdated(self,key):
         pass
     
     
-def _is_Tiled_Source(filename):
+def _is_Tiled_Source(sourceName):
     try:
-        if hasattr(filename, self.node_path):
+        if (
+            sourceName.startswith("tiled:")
+            or sourceName.startswith("http://")
+            or sourceName.startswith("https://")
+        ):
             return True
     except Exception:
-        return False
+        pass
+    
+    return False
     
 source_types = {SOURCE_TYPE: QTiledDataSource}
 
