@@ -380,11 +380,14 @@ class TiledBrowser(qt.QMainWindow):
 
         node = self.get_current_node()[node_id]
         family = node.item["attributes"]["structure_family"]
+        _logger.debug(f'open_node({node_id}): {family = }')
         if isinstance(node, DummyClient):
             _logger.debug(f"Cannot open type: '{family}'")
             return
         if family == StructureFamily.array:
             # TODO: find a way set data to self.data
+            self.setData(node)
+        elif family == StructureFamily.table:
             self.setData(node)
         elif family == StructureFamily.container:
             self.enter_node(node_id)
