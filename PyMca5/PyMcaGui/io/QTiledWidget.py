@@ -7,6 +7,7 @@ import collections
 from datetime import date, datetime
 import functools
 import json
+import logging
 
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QIcon, QPixmap
@@ -32,6 +33,10 @@ from tiled.client import from_uri
 from tiled.client.array import DaskArrayClient
 from tiled.client.container import Container
 from tiled.structures.core import StructureFamily
+
+
+_logger = logging.getLogger(__name__)
+
 
 def json_decode(obj):
     if isinstance(obj, (datetime, date)):
@@ -258,14 +263,14 @@ class TiledBrowser(qt.QMainWindow):
         url = self.url_entry.displayText().strip()
         # url = "https://tiled-demo.blueskyproject.io/api"
         if not url:
-            print("Please specify a url.")
+            _logger.debug("Please specify a url.")
             return
         try:
             root = from_uri(url, STRUCTURE_CLIENTS)
             if isinstance(root, DummyClient):
-                print("Unsupported tiled type detected")
+                _logger.debug("Unsupported tiled type detected")
         except Exception:
-            print("Could not connect. Please check the url.")
+            _logger.debug("Could not connect. Please check the url.")
         else:
             self.connection_label.setText(f"Connected to {url}")
             self.set_root(root)
@@ -300,7 +305,7 @@ class TiledBrowser(qt.QMainWindow):
     def _getDataObject(self, key=None, selection=None):
         if key is None:
             # key = self.info['Key']
-            print('deal with later')
+            _logger.debug('deal with later')
         dataObject = self.data.getDataObject(key,
                                              selection=None,
                                              poll=False)
@@ -349,8 +354,8 @@ class TiledBrowser(qt.QMainWindow):
         return self.root
 
     def enter_node(self, node_id):
-        print(f"{self.node_path = }")
-        print(f"{node_id = }")
+        _logger.debug(f"{self.node_path = }")
+        _logger.debug(f"{node_id = }")
         self.node_path += (node_id,)
         self._current_page = 0
         self._rebuild()
@@ -373,7 +378,7 @@ class TiledBrowser(qt.QMainWindow):
         node = self.get_current_node()[node_id]
         family = node.item["attributes"]["structure_family"]
         if isinstance(node, DummyClient):
-            print(f"Cannot open type: '{family}'")
+            _logger.debug(f"Cannot open type: '{family}'")
             return
         if family == StructureFamily.array:
             # TODO: find a way set data to self.data
@@ -381,7 +386,7 @@ class TiledBrowser(qt.QMainWindow):
         elif family == StructureFamily.container:
             self.enter_node(node_id)
         else:
-            print(f"Type not supported:'{family}")
+            _logger.debug(f"Type not supported:'{family}")
 
     def _on_load(self):
         selected = self.catalog_table.selectedItems()
@@ -722,6 +727,9 @@ class TiledBrowser(qt.QMainWindow):
                     'scanselection': True,
                     }
                 sel_list.append(sel)
+
+        _logger.debug(f'{sel_list = }')
+        _logger.debug(f'{emit = }')
 
         if emit:
             if len(sel_list):

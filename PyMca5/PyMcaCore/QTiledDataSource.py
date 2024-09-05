@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import time
 import sys
@@ -6,6 +7,9 @@ from PyMca5.PyMcaCore import DataObject
 from PyMca5.PyMcaGui.io.TiledDataChannelTable import TiledDataChannelTable
 from PyMca5.PyMcaGui.io.QTiledWidget import TiledBrowser
 from PyMca5.PyMcaGui.pymca import QSource
+
+
+_logger = logging.getLogger(__name__)
 
 
 SOURCE_TYPE = 'Tiled'
@@ -23,7 +27,7 @@ class QTiledDataSource(QSource.QSource):
     """
 
     def __init__(self, nameInput):
-        print("-------- QTiledDataSource init")
+        _logger.debug("-------- QTiledDataSource init")
         super().__init__()
         if isinstance(nameInput, list):
             nameList = nameInput
@@ -35,6 +39,10 @@ class QTiledDataSource(QSource.QSource):
         self.refresh()
 
     def refresh(self):
+        # ddict = {
+
+        # }
+        # self.sigUpdated.emit(self.sourceName)
         pass
 
     def getDataObject(self, key_list, selection=None, poll=False):
@@ -62,7 +70,7 @@ class QTiledDataSource(QSource.QSource):
     
     def _set_data_channel_selection(self):
         """Retrieve Data Channel Selections from Tiled Data Channel Table."""
-        print("-------- QTiledDataSource _set_data_channel_selection")
+        _logger.debug("-------- QTiledDataSource _set_data_channel_selection")
         channel_sel = TiledDataChannelTable.getChannelSelection()
         self.chan_sel = {
             'x': channel_sel['x'],
@@ -85,7 +93,7 @@ class QTiledDataSource(QSource.QSource):
     
     def get_data_object(self, key, selection=None):
         """Generate a dataObject that will be used to plot scan data."""
-        print("-------- QTiledDataSource get_data_object")
+        _logger.debug("-------- QTiledDataSource get_data_object")
         dataObject = DataObject.DataObject()
         dataObject.info = self._get_key_info(selection)
         dataObject.data = key['selection']
@@ -133,7 +141,7 @@ if __name__ == "__main__":
         sourcename = sys.argv[1]
         key = sys.argv[2]
     except Exception:
-        print("Usage: QTiledDataSource <file> <key>")
+        _logger.debug("Usage: QTiledDataSource <file> <key>")
         sys.exit()
     #one can use this:
     obj = QTiledDataSource(sourcename)
@@ -143,16 +151,16 @@ if __name__ == "__main__":
     #data = obj.getDataObject(key,selection={'pos':None,'size':None})
     t0 = time.time()
     data = obj.getDataObject(key,selection=None)
-    print("elapsed = ",time.time() - t0)
-    print("info = ",data.info)
+    _logger.debug("elapsed = ",time.time() - t0)
+    _logger.debug("info = ",data.info)
     if data.data is not None:
-        print("data shape = ",data.data.shape)
-        print(np.ravel(data.data)[0:10])
+        _logger.debug("data shape = ",data.data.shape)
+        _logger.debug(np.ravel(data.data)[0:10])
     else:
-        print(data.y[0].shape)
-        print(np.ravel(data.y[0])[0:10])
+        _logger.debug(data.y[0].shape)
+        _logger.debug(np.ravel(data.y[0])[0:10])
     data = obj.getDataObject('1.1',selection=None)
     r = int(key.split('.')[-1])
-    print(" data[%d,0:10] = " % (r-1),data.data[r-1   ,0:10])
-    print(" data[0:10,%d] = " % (r-1),data.data[0:10, r-1])
+    _logger.debug(" data[%d,0:10] = " % (r-1),data.data[r-1   ,0:10])
+    _logger.debug(" data[0:10,%d] = " % (r-1),data.data[0:10, r-1])
         
