@@ -715,11 +715,13 @@ class TiledBrowser(qt.QMainWindow):
         current_location_text = f"{starting_index}-{ending_index} of {self.nrows_catalog_table}"
         self.current_location_label.setText(current_location_text)
 
-    def _addClicked(self, emit=True):
+    def _addClicked(self, *, emit=True):
         """Plots scan to the scan window after it is selected and the add button is clicked."""
         
+        _logger.debug('_addClicked()...')
         sel_list = []
         channel_sel  = self.data_channels_table.getChannelSelection()
+        _logger.debug(f'{channel_sel = }')
         if len(channel_sel['Data Channel List']):
             if len(channel_sel['y']):
                 # TODO: find was to give self.data a SourceName method.
