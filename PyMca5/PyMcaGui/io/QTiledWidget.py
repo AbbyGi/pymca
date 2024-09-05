@@ -281,8 +281,11 @@ class TiledBrowser(qt.QMainWindow):
             #     }
             # )
 
-    def setDataSource(self, data):
-        self.data = data
+    def setDataSource(self, source):
+        self.data = source
+        _logger.debug(f'{type(self.data) = }; {self.data = }')
+        self.url_entry.setText(source.sourceName[0])
+        self._on_connect_clicked()
         # self.data.sigUpdated.connect(self._update)
         selection = self.set_data_source_key()
 
