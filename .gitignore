@@ -66,5 +66,8 @@ PyMca5/PyMcaPhysics/xas/_xas/cython/*.c
 # PyCharm meta data
 .idea/
 
+# VSCode meta data
+.vscode/
+
 # Vim
 *.swp
