@@ -255,7 +255,7 @@ class ScanWindow(PlotWindow.PlotWindow):
                 continue
             if not sel["scanselection"]:
                 continue
-            if len(key.split(".")) > 2:
+            if isinstance(key, str) and len(key.split(".")) > 2:
                 continue
             dataObject = sel['dataobject']
             # only one-dimensional selections considered
@@ -372,7 +372,7 @@ class ScanWindow(PlotWindow.PlotWindow):
                             if numpy.isscalar(dataObject.m[imon]):
                                 dataObject.m[imon] = \
                                              numpy.array([dataObject.m[imon]])
-                    if dataObject.m is None:
+                    if (dataObject.m is None) or (len(dataObject.m) == 0):
                         mdata = numpy.ones(len(ydata)).astype(numpy.float64)
                     elif len(dataObject.m[0]) > 0:
                         if len(dataObject.m[0]) == len(ydata):

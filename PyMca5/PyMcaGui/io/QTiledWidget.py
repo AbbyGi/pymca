@@ -7,6 +7,7 @@ import collections
 from datetime import date, datetime
 import functools
 import json
+import logging
 
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QIcon, QPixmap
@@ -32,6 +33,10 @@ from tiled.client import from_uri
 from tiled.client.array import DaskArrayClient
 from tiled.client.container import Container
 from tiled.structures.core import StructureFamily
+
+
+_logger = logging.getLogger(__name__)
+
 
 def json_decode(obj):
     if isinstance(obj, (datetime, date)):
@@ -258,14 +263,14 @@ class TiledBrowser(qt.QMainWindow):
         url = self.url_entry.displayText().strip()
         # url = "https://tiled-demo.blueskyproject.io/api"
         if not url:
-            print("Please specify a url.")
+            _logger.debug("Please specify a url.")
             return
         try:
             root = from_uri(url, STRUCTURE_CLIENTS)
             if isinstance(root, DummyClient):
-                print("Unsupported tiled type detected")
+                _logger.debug("Unsupported tiled type detected")
         except Exception:
-            print("Could not connect. Please check the url.")
+            _logger.debug("Could not connect. Please check the url.")
         else:
             self.connection_label.setText(f"Connected to {url}")
             self.set_root(root)
@@ -276,8 +281,11 @@ class TiledBrowser(qt.QMainWindow):
             #     }
             # )
 
-    def setDataSource(self, data):
-        self.data = data
+    def setDataSource(self, source):
+        self.data = source
+        _logger.debug(f'{type(self.data) = }; {self.data = }')
+        self.url_entry.setText(source.sourceName[0])
+        self._on_connect_clicked()
         # self.data.sigUpdated.connect(self._update)
         selection = self.set_data_source_key()
 
@@ -300,7 +308,7 @@ class TiledBrowser(qt.QMainWindow):
     def _getDataObject(self, key=None, selection=None):
         if key is None:
             # key = self.info['Key']
-            print('deal with later')
+            _logger.debug('deal with later')
         dataObject = self.data.getDataObject(key,
                                              selection=None,
                                              poll=False)
@@ -312,15 +320,15 @@ class TiledBrowser(qt.QMainWindow):
         #     self.data.addToPoller(dataObject)
         return dataObject
 
-    def setData(self, node):
-        self.data = node
-        self.refreshData()
+    # def setData(self, node):
+    #     self.data = node
+    #     self.refreshData()
 
-    def refreshData(self):
-        pass
+    # def refreshData(self):
+    #     pass
 
-    def clearData(self):
-        self.data = None
+    # def clearData(self):
+    #     self.data = None
         
     def set_data_source_key(self):
         if 'raw' in self.node_path and 'raw' != self.node_path[-1]:
@@ -349,15 +357,15 @@ class TiledBrowser(qt.QMainWindow):
         return self.root
 
     def enter_node(self, node_id):
-        print(f"{self.node_path = }")
-        print(f"{node_id = }")
+        _logger.debug(f"{self.node_path = }")
+        _logger.debug(f"{node_id = }")
         self.node_path += (node_id,)
         self._current_page = 0
         self._rebuild()
         # avoid populating data channels table if not in a scan
         if 'raw' in self.node_path and self.node_path[-1] != 'raw':
-            rawDataChannels = tuple(self.get_current_node().items())
-            dataChannels = [channel[0] for channel in rawDataChannels]
+            # For now, always select data from the primary stream
+            dataChannels = self.get_current_node()["primary", "data"].keys()
             self.data_channels_table.build_table(dataChannels)
 
     def exit_node(self):
@@ -372,16 +380,21 @@ class TiledBrowser(qt.QMainWindow):
 
         node = self.get_current_node()[node_id]
         family = node.item["attributes"]["structure_family"]
+        _logger.debug(f'open_node({node_id}): {family = }')
         if isinstance(node, DummyClient):
-            print(f"Cannot open type: '{family}'")
+            _logger.debug(f"Cannot open type: '{family}'")
             return
         if family == StructureFamily.array:
             # TODO: find a way set data to self.data
-            self.setData(node)
+            # self.setData(node)
+            pass
+        elif family == StructureFamily.table:
+            # self.setData(node)
+            pass
         elif family == StructureFamily.container:
             self.enter_node(node_id)
         else:
-            print(f"Type not supported:'{family}")
+            _logger.debug(f"Type not supported:'{family}")
 
     def _on_load(self):
         selected = self.catalog_table.selectedItems()
@@ -704,17 +717,21 @@ class TiledBrowser(qt.QMainWindow):
         current_location_text = f"{starting_index}-{ending_index} of {self.nrows_catalog_table}"
         self.current_location_label.setText(current_location_text)
 
-    def _addClicked(self, emit=True):
+    def _addClicked(self, *, emit=True):
         """Plots scan to the scan window after it is selected and the add button is clicked."""
         
+        _logger.debug('_addClicked()...')
         sel_list = []
         channel_sel  = self.data_channels_table.getChannelSelection()
+        _logger.debug(f'{channel_sel = }')
+        _logger.debug(f'{self.node_path = }')
         if len(channel_sel['Data Channel List']):
             if len(channel_sel['y']):
-                # TODO: find was to give self.data a SourceName method.
                 sel = {
                     'SourceName': self.data.sourceName,
                     'SourceType': self.data.sourceType,
+                    'Key': self.node_path,
+                    'legend': '/'.join(self.node_path),
                     'selection': {'x': channel_sel['x'],
                                    'y': channel_sel['y'],
                                    'm': channel_sel['m'],
@@ -722,6 +739,9 @@ class TiledBrowser(qt.QMainWindow):
                     'scanselection': True,
                     }
                 sel_list.append(sel)
+
+        _logger.debug(f'{sel_list = }')
+        _logger.debug(f'{emit = }')
 
         if emit:
             if len(sel_list):
